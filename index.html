@@ -22,13 +22,12 @@
 <div class="card">
     <h2>HostingToilet</h2>
     
-    <!-- KULLANICI NUMARASI -->
     <div id="topCodeArea" style="display:none;">
         <p style="margin:0; font-size:12px; color:#aaa;">KULLANICI NUMARANIZ:</p>
         <div class="code-box" id="userCodeDisp">HT-XXXXXX</div>
     </div>
 
-    <!-- 1. ADIM: KAYIT / GİRİŞ SİSTEMİ -->
+    <!-- 1. GİRİŞ KISMI -->
     <div id="stepLogin">
         <h3>Tuvalet Kullanım Paneli</h3>
         <p style="font-size:14px; color:#ccc;">Lütfen devam etmek için adınızı girin:</p>
@@ -36,13 +35,12 @@
         <button onclick="sistemeKayitOl()" class="btn-kucuk">SİSTEME GİRİŞ YAP</button>
     </div>
 
-    <!-- NOT VE UYARI KUTUSU -->
     <div id="infoNoteBox" class="info-note" style="display:none;">
         📌 <b>ÖNEMLİ BİLGİLENDİRME:</b><br>
-        Sizin kullanıcı numaranız budur. Bunu kaydedin. Eğer ki kaybettiyseniz üzülmeyin. Tekrar sisteme giriş yaptığınızda sayfanın en üst kısmında tekrar görünecektir.
+        Kullanıcı numaranızı kaybetmeyin. Tekrar giriş yaptığınızda en üstte görünecektir.
     </div>
 
-    <!-- 2. ADIM: TUVALET KULLANIM EKRANI -->
+    <!-- 2. SEÇİM EKRANI (GİRİŞ YAPILINCA DİREKT AÇILIR) -->
     <div id="stepGiris" style="display:none;">
         <h3 style="margin:5px;">Hoş Geldin, <span id="dispName"></span>!</h3>
         <p style="margin:5px;">Mevcut Bakiyeniz: <span class="bakiye-text" id="bakiyeVal">0</span> Coin</p>
@@ -56,11 +54,10 @@
         <button onclick="yuklemeEkraniAc()" style="background:#444; color:#ccc; font-size:12px; width:70%;">+ Bakiye / Coin Yükle</button>
     </div>
 
-    <!-- 3. ADIM: BAKİYE YÜKLEME EKRANI -->
+    <!-- 3. YÜKLEME EKRANI -->
     <div id="stepYukle" style="display:none;">
         <h3 style="color:#ff5722;">⚠️ Bakiyeniz Yetersiz!</h3>
         <p>Mevcut Bakiye: <span class="bakiye-text" id="bakiyeValYukle">0</span> Coin</p>
-        <p><small style="color:#aaa;">Çalışıp kazanacaksın! Hayatta bedava şey yok.</small></p>
         <hr style="border-color:#333;">
 
         <input type="number" id="coinAmount" max="300" placeholder="Yüklenecek Tutar (Max 300)">
@@ -99,7 +96,6 @@
         document.getElementById('userCodeDisp').innerText = myUserCode;
         document.getElementById('topCodeArea').style.display = "block";
         document.getElementById('infoNoteBox').style.display = "block";
-        
         document.getElementById('dispName').innerText = name;
         document.getElementById('stepLogin').style.display = "none";
 
@@ -109,15 +105,10 @@
     async function sistemeGirisKontrol() {
         let currentCoin = await getBulutBakiye(myUserCode);
 
-        if(currentCoin >= 10) {
-            document.getElementById('bakiyeVal').innerText = currentCoin;
-            document.getElementById('stepGiris').style.display = "block";
-            document.getElementById('stepYukle').style.display = "none";
-        } else {
-            document.getElementById('bakiyeValYukle').innerText = currentCoin;
-            document.getElementById('stepYukle').style.display = "block";
-            document.getElementById('stepGiris').style.display = "none";
-        }
+        // Bakiye kontrol etmeksizin direkt seçim ekranını göster
+        document.getElementById('bakiyeVal').innerText = currentCoin;
+        document.getElementById('stepGiris').style.display = "block";
+        document.getElementById('stepYukle').style.display = "none";
     }
 
     async function tuvaletHarcamaYap(maliyet) {
@@ -126,16 +117,13 @@
         if(currentCoin >= maliyet) {
             let kalan = currentCoin - maliyet;
             
-            // 1. Bakiyeyi Düş
             await bulutBakiyeGuncelle(myUserCode, kalan);
-            
-            // 2. Kapıdaki Host Telefona Tetik Sinyali Gönder
             await kapiTetikSinyaliGonder(myUserCode, maliyet);
 
             alert("İşlem Başarılı! " + maliyet + " Coin düşüldü. Kapı açılıyor...");
             await sistemeGirisKontrol();
         } else {
-            alert("Bakiyeniz bu işlem için yetersiz!");
+            alert("Bakiyeniz bu işlem için yetersiz! Lütfen yükleme yapın.");
             yuklemeEkraniAc();
         }
     }
@@ -158,14 +146,13 @@
         document.getElementById('stepYukle').style.display = "block";
     }
 
-    // --- API BULUT FONKSİYONLARI ---
     async function getBulutBakiye(code) {
         try {
             let res = await fetch('https://api.myjson.online/v1/records');
             let json = await res.json();
-            let rec = json.data.filter(r => r.userCode === code && r.type !== "OPEN_DOOR").pop();
-            return rec ? rec.coin : 0;
-        } catch(e) { return 0; }
+            let rec = json.data.filter(r => r.userCode === code && r.type === "BALANCE_UPDATE").pop();
+            return rec ? rec.coin : 50; // Yeni kullanıcıya varsayılan 50 coin
+        } catch(e) { return 50; }
     }
 
     async function bulutBakiyeGuncelle(code, newCoin) {
