@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HostingToilet Panel</title>
+    <style>
+        body { font-family: sans-serif; background: #121212; color: #fff; text-align: center; padding: 15px; margin: 0; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 12px; border: 1px solid #333; max-width: 400px; margin: 10px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        input, button { width: 90%; padding: 14px; margin: 8px 0; border-radius: 8px; border: none; font-size: 16px; box-sizing: border-box; }
+        button { font-weight: bold; cursor: pointer; }
+        .btn-kucuk { background: #2196F3; color: white; }
+        .btn-buyuk { background: #4CAF50; color: white; }
+        .btn-yukle { background: #ff9800; color: white; }
+        .code-box { background: #2a2a2a; color: #ffeb3b; padding: 10px; font-weight: bold; letter-spacing: 2px; border-radius: 6px; margin: 10px 0; }
+        .bakiye-text { font-size: 22px; color: #00ff08; font-weight: bold; }
+        .info-note { background: #2c2200; border: 1px solid #ff9800; color: #ffe0b2; padding: 12px; border-radius: 8px; font-size: 13px; text-align: left; margin: 10px 0; }
+        .alert-warn { background: #3e0a0a; border: 1px solid #f44336; color: #ffcdd2; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>HostingToilet</h2>
+    
+    <div id="topCodeArea" style="display:none;">
+        <p style="margin:0; font-size:11px; color:#aaa;">KULLANICI NUMARANIZ:</p>
+        <div class="code-box" id="userCodeDisp">HT-XXXXXX</div>
+    </div>
+
+    <!-- EĞER HESAP YOKSA: DİREKT UYARI VE KAYIT EKRANI -->
+    <div id="stepNoAccount" style="display:none;">
+        <div class="alert-warn">Sistemimize kayıt olmadınız. Lütfen sistemimize kayıt olunuz.</div>
+        <input type="text" id="username" placeholder="Adınız Soyadınız">
+        <button onclick="kayitol()" class="btn-kucuk">KAYIT OL VE GİRİŞ YAP</button>
+    </div>
+
+    <!-- NOT KUTUSU -->
+    <div id="infoNoteBox" class="info-note" style="display:none;">
+        📌 <b>ÖNEMLİ BİLGİLENDİRME:</b><br>
+        Sizin kullanıcı numaranız budur. Bunu kaydedin. Eğer ki kaybettiyseniz üzülmeyin. Tekrar sisteme giriş yaptığınızda, sayfanın en üst kısmında kullanıcı numaranız tekrar görünecektir.
+    </div>
+
+    <!-- HESAP VE BAKIYE VARSA: DİREKT TUVALET IŞIK PANELİ (KÜÇÜK / BÜYÜK) -->
+    <div id="stepTuvaletPaneli" style="display:none;">
+        <h3 style="margin:5px;">Hoş Geldin, <span id="dispName"></span>!</h3>
+        <p style="margin:5px;">Bakiyeniz: <span class="bakiye-text" id="bakiyeVal">0</span> Coin</p>
+        <hr style="border-color:#333;">
+
+        <h4>IŞIK VE KAPITI TETİKLE:</h4>
+        <button class="btn-kucuk" onclick="harca(10)">KÜÇÜK (10 Coin)</button>
+        <button class="btn-buyuk" onclick="harca(15)">BÜYÜK (15 Coin)</button>
+        
+        <br><br>
+        <button onclick="yuklemeAc()" style="background:#444; color:#ccc; font-size:12px; width:60%;">+ Coin Yükle</button>
+    </div>
+
+    <!-- BAKIYE YOKSA: BAKIYE YÜKLEME EKRANI -->
+    <div id="stepYukle" style="display:none;">
+        <h3 style="color:#ff5722;">⚠️ Yetersiz Bakiye!</h3>
+        <p>Bakiyeniz: <span class="bakiye-text" id="bakiyeValYukle">0</span> Coin</p>
+        <hr style="border-color:#333;">
+        <input type="number" id="coinAmount" max="300" placeholder="Yüklenecek Tutar (Max 300)">
+        <button class="btn-yukle" onclick="coinYukle()">COİN YÜKLE</button>
+    </div>
+</div>
+
+<script>
+    let myCode = "";
+
+    function getCode() {
+        let c = localStorage.getItem('HT_MY_CODE');
+        if(!c) {
+            c = "HT-" + Math.floor(100000 + Math.random() * 900000);
+            localStorage.setItem('HT_MY_CODE', c);
+        }
+        return c;
+    }
+
+    window.onload = async function() {
+        let savedName = localStorage.getItem('HT_NAME');
+        
+        // HESAP YOKSA:
+        if(!savedName) {
+            document.getElementById('stepNoAccount').style.display = "block";
+        } else {
+            // HESAP VARSA:
+            myCode = getCode();
+            sistemiArayuzdeGoster(savedName);
+            await akisKontrol();
+        }
+    }
+
+    async function kayitol() {
+        let name = document.getElementById('username').value;
+        if(!name) return alert("Lütfen adınızı girin!");
+
+        localStorage.setItem('HT_NAME', name);
+        myCode = getCode();
+        
+        document.getElementById('stepNoAccount').style.display = "none";
+        sistemiArayuzdeGoster(name);
+        await akisKontrol();
+    }
+
+    function sistemiArayuzdeGoster(name) {
+        document.getElementById('userCodeDisp').innerText = myCode;
+        document.getElementById('topCodeArea').style.display = "block";
+        document.getElementById('infoNoteBox').style.display = "block";
+        document.getElementById('dispName').innerText = name;
+    }
+
+    async function akisKontrol() {
+        let coin = await getBulutBakiye(myCode);
+
+        // BAKIYE VARSA (En az 10 Coin): Direkt Tuvalet Işık Butonları Ekranı
+        if(coin >= 10) {
+            document.getElementById('bakiyeVal').innerText = coin;
+            document.getElementById('stepTuvaletPaneli').style.display = "block";
+            document.getElementById('stepYukle').style.display = "none";
+        } else {
+            // BAKIYE YOKSA: Yükleme Ekranı
+            document.getElementById('bakiyeValYukle').innerText = coin;
+            document.getElementById('stepYukle').style.display = "block";
+            document.getElementById('stepTuvaletPaneli').style.display = "none";
+        }
+    }
+
+    async function harca(maliyet) {
+        let coin = await getBulutBakiye(myCode);
+        if(coin >= maliyet) {
+            let kalan = coin - maliyet;
+            await bulutGuncelle(myCode, kalan);
+            alert("İşlem Onaylandı! " + maliyet + " Coin düşüldü. Işık Yanıyor...");
+            await akisKontrol();
+        } else {
+            alert("Yetersiz Bakiye!");
+            yuklemeAc();
+        }
+    }
+
+    async function coinYukle() {
+        let amount = parseInt(document.getElementById('coinAmount').value);
+        if(!amount || amount <= 0 || amount > 300) return alert("1-300 arası geçerli miktar girin!");
+
+        let coin = await getBulutBakiye(myCode);
+        await bulutGuncelle(myCode, coin + amount);
+        alert(amount + " Coin yüklendi!");
+        await akisKontrol();
+    }
+
+    function yuklemeAc() {
+        document.getElementById('stepTuvaletPaneli').style.display = "none";
+        document.getElementById('stepYukle').style.display = "block";
+    }
+
+    async function getBulutBakiye(code) {
+        try {
+            let res = await fetch('https://api.myjson.online/v1/records');
+            let json = await res.json();
+            let rec = json.data.filter(r => r.userCode === code).pop();
+            return rec ? rec.coin : 0;
+        } catch(e) { return 0; }
+    }
+
+    async function bulutGuncelle(code, newCoin) {
+        try {
+            await fetch('https://api.myjson.online/v1/records', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userCode: code, coin: newCoin, timestamp: Date.now() })
+            });
+        } catch(e) {}
+    }
+</script>
+</body>
+</html>
